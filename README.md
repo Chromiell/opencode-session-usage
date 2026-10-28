@@ -64,10 +64,15 @@ The file is optional — every key falls back to the default below. It is watche
 so display changes apply immediately. `position` is read when the plugin loads,
 so changing it needs `/reload` (or a TUI restart).
 
+OpenCode's sidebar gives the `bottom` slot only a single row before the prompt
+area, so use `"compact": true` there; the full multi-line panel is designed for
+`"top"`.
+
 ```json title="~/.config/opencode/usage-sidebar.json"
 {
   "refreshMs": 120000,
   "position": "top",
+  "compact": false,
   "title": "Usage",
   "showEstimate": true,
   "showMeters": true,
@@ -83,6 +88,7 @@ so changing it needs `/reload` (or a TUI restart).
 | :------------- | :-------- | :------------------------------------------------------------------------------------------------------------- |
 | `refreshMs` | `120000` | Polling interval in ms (2 minutes). Minimum `30000`; `0` disables polling and refreshes only on usage events. |
 | `position` | `"top"` | `"top"` or `"bottom"` of the sidebar. OpenCode 2.2.0 exposes one sidebar slot, so there is no middle position. |
+| `compact` | `false` | One-line summary: title plus the three percentages (or the estimate when there are no meters). Recommended with `position: "bottom"`. |
 | `title` | `"Usage"` | Section heading, up to 40 characters. |
 | `showEstimate` | `true` | Show the catalog-price estimate. |
 | `showMeters` | `true` | Show the Go meters when the account provides them. |

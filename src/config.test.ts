@@ -20,6 +20,7 @@ describe("parseConfig", () => {
       parseConfig({
         refreshMs: 120_000,
         position: "bottom",
+        compact: true,
         title: "Go quota",
         showEstimate: false,
         showMeters: true,
@@ -32,6 +33,7 @@ describe("parseConfig", () => {
     ).toEqual({
       refreshMs: 120_000,
       position: "bottom",
+      compact: true,
       title: "Go quota",
       showEstimate: false,
       showMeters: true,

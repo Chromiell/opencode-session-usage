@@ -14,6 +14,8 @@ export interface UsageConfig {
   refreshMs: number
   /** Where the panel sits in the sidebar. Only top/bottom are supported by OpenCode 2.2.0. */
   position: Position
+  /** Two-line summary: title/estimate plus one meter line. Recommended for bottom placement. */
+  compact: boolean
   title: string
   showEstimate: boolean
   showMeters: boolean
@@ -27,6 +29,7 @@ export interface UsageConfig {
 export const DEFAULT_CONFIG: UsageConfig = {
   refreshMs: 120_000,
   position: "top",
+  compact: false,
   title: "Usage",
   showEstimate: true,
   showMeters: true,
@@ -77,7 +80,7 @@ export function parseConfig(value: unknown): Partial<UsageConfig> {
   const title = string(input.title, MAX_TITLE)
   if (title !== undefined) result.title = title
 
-  for (const key of ["showEstimate", "showMeters", "showBars", "showReset"] as const) {
+  for (const key of ["compact", "showEstimate", "showMeters", "showBars", "showReset"] as const) {
     const enabled = boolean(input[key])
     if (enabled !== undefined) result[key] = enabled
   }

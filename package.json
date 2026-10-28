@@ -1,6 +1,6 @@
 {
   "name": "opencode-session-usage",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "OpenCode TUI sidebar with a catalog-price session estimate and OpenCode Go / Console usage meters.",
   "type": "module",
   "license": "MIT",

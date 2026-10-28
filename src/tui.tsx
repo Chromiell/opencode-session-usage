@@ -1,7 +1,7 @@
 /** @jsxImportSource @opentui/solid */
 import type { UsageLimitsGo } from "@opencode/client"
 import { Plugin } from "@opencode/plugin/tui"
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js"
+import { createMemo, createSignal, For, onCleanup, Show } from "solid-js"
 import { loadConfig, watchConfig } from "./config"
 import { bar, catalogCost, resetIn, TICK_MS } from "./usage"
 
@@ -15,6 +15,8 @@ const money = new Intl.NumberFormat("en-US", {
 type SidebarUsageProps = {
   context: Plugin.Context
   sessionID: string
+  /** Usage limits fetched before the slot mounts, so the first frame has meters. */
+  initialGo?: UsageLimitsGo
   /** Plugin options from `cli.json`, which override the config file. */
   options?: unknown
 }
@@ -42,7 +44,7 @@ export function SidebarUsage(props: SidebarUsageProps) {
     return total
   })
 
-  const [go, setGo] = createSignal<UsageLimitsGo>()
+  const [go, setGo] = createSignal<UsageLimitsGo | undefined>(props.initialGo)
   const [now, setNow] = createSignal(Date.now())
   let lastLoaded = 0
   let lastForced = 0
@@ -70,19 +72,6 @@ export function SidebarUsage(props: SidebarUsageProps) {
   }
 
   void load(true)
-
-  // Switching sessions must not show the previous session's meters while the
-  // new reading is in flight.
-  createEffect(
-    on(
-      () => props.sessionID,
-      () => {
-        setGo(undefined)
-        void load(true)
-      },
-      { defer: true },
-    ),
-  )
 
   // The tick advances the countdown every 15 s; the network read is throttled
   // by refreshMs, so the default cadence is one free GET every two minutes.
@@ -113,48 +102,64 @@ export function SidebarUsage(props: SidebarUsageProps) {
     ]
   })
 
+  const compactLine = createMemo(() => {
+    const value = rows()
+    if (config().showMeters && value.length > 0) {
+      return value.map((row) => `${row.label.slice(0, 1)}${Math.round(row.meter.percent)}%`).join(" · ")
+    }
+    return config().showEstimate ? `≈ ${money.format(estimate())}` : ""
+  })
+
+  const meterColor = (meter: { percent: number; limited: boolean }) => {
+    const settings = config()
+    if (meter.limited || meter.percent >= settings.criticalAt) return theme.text.feedback.error.base
+    return meter.percent >= settings.warnAt ? theme.text.feedback.warning.base : theme.text.feedback.success.base
+  }
+
   return (
     <box>
-      <text fg={theme.text.base}>
-        <b>{config().title}</b>
-      </text>
-      <Show when={config().showEstimate}>
-        <text fg={theme.text.muted}>≈ {money.format(estimate())} session estimate</text>
-      </Show>
-      <Show when={config().showMeters && rows().length > 0}>
-        <box paddingTop={config().showEstimate ? 1 : 0} gap={1}>
-          <For each={rows()}>
-            {(row) => {
-              const size = () => bar(row.meter.percent, config().barWidth)
-              const color = () => {
-                const settings = config()
-                if (row.meter.limited || row.meter.percent >= settings.criticalAt) {
-                  return theme.text.feedback.error.base
-                }
-                return row.meter.percent >= settings.warnAt
-                  ? theme.text.feedback.warning.base
-                  : theme.text.feedback.success.base
-              }
-              return (
-                <box>
-                  <text fg={theme.text.base}>
-                    <b>{row.label.padEnd(8)}</b>
-                    <span style={{ fg: color() }}>{`${Math.round(row.meter.percent)}%`.padStart(4)} used</span>
-                    <Show when={config().showReset}>
-                      <span style={{ fg: theme.text.muted }}> · resets {resetIn(row.meter.resetsAt, now())}</span>
-                    </Show>
-                  </text>
-                  <Show when={config().showBars}>
-                    <text>
-                      <span style={{ fg: color() }}>{"━".repeat(size().filled)}</span>
-                      <span style={{ fg: theme.text.muted }}>{"─".repeat(size().empty)}</span>
+      <Show when={!config().compact}>
+        <text fg={theme.text.base}>
+          <b>{config().title}</b>
+        </text>
+        <Show when={config().showEstimate}>
+          <text fg={theme.text.muted}>≈ {money.format(estimate())} session estimate</text>
+        </Show>
+        <Show when={config().showMeters && rows().length > 0}>
+          <box paddingTop={config().showEstimate ? 1 : 0} gap={1}>
+            <For each={rows()}>
+              {(row) => {
+                const size = () => bar(row.meter.percent, config().barWidth)
+                return (
+                  <box>
+                    <text fg={theme.text.base}>
+                      <b>{row.label.padEnd(8)}</b>
+                      <span style={{ fg: meterColor(row.meter) }}>
+                        {`${Math.round(row.meter.percent)}%`.padStart(4)} used
+                      </span>
+                      <Show when={config().showReset}>
+                        <span style={{ fg: theme.text.muted }}> · resets {resetIn(row.meter.resetsAt, now())}</span>
+                      </Show>
                     </text>
-                  </Show>
-                </box>
-              )
-            }}
-          </For>
-        </box>
+                    <Show when={config().showBars}>
+                      <text>
+                        <span style={{ fg: meterColor(row.meter) }}>{"━".repeat(size().filled)}</span>
+                        <span style={{ fg: theme.text.muted }}>{"─".repeat(size().empty)}</span>
+                      </text>
+                    </Show>
+                  </box>
+                )
+              }}
+            </For>
+          </box>
+        </Show>
+      </Show>
+
+      <Show when={config().compact}>
+        <text fg={theme.text.base}>
+          <b>{config().title}</b>
+          <span style={{ fg: theme.text.muted }}> · {compactLine()}</span>
+        </text>
       </Show>
     </box>
   )
@@ -165,13 +170,21 @@ export default Plugin.define({
   // choices are the top or the bottom of the sidebar. `position` in
   // usage-sidebar.json (or cli.json options) selects between them.
   id: "chromiell.usage-sidebar",
-  setup(context) {
+  async setup(context) {
     const settings = loadConfig(context.options)
+    let initialGo: UsageLimitsGo | undefined
+    try {
+      const location = context.location ?? context.data.location.default()
+      const response = await context.client.usage.limits({ location: { directory: location.directory } })
+      initialGo = response.data?.go
+    } catch {
+      // The panel retries on its own; a failed prefetch must not block loading.
+    }
     const render = (input: { sessionID: string }) => (
-      <SidebarUsage context={context} sessionID={input.sessionID} options={context.options} />
+      <SidebarUsage context={context} sessionID={input.sessionID} initialGo={initialGo} options={context.options} />
     )
     return settings.position === "bottom"
-      ? context.ui.slot({ append: "sidebar.content", render })
+      ? context.ui.slot({ prepend: "sidebar.footer", render })
       : context.ui.slot({ prepend: "sidebar.content", render })
   },
 })
