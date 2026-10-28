@@ -166,10 +166,12 @@ export function SidebarUsage(props: SidebarUsageProps) {
 }
 
 export default Plugin.define({
-  // OpenCode 2.2.0 exposes `sidebar.content` as one slot, so the supported
-  // choices are the top or the bottom of the sidebar. `position` in
-  // usage-sidebar.json (or cli.json options) selects between them.
-  id: "chromiell.usage-sidebar",
+  // OpenCode 2.2.0 exposes `sidebar.content` as one slot and publishes no
+  // anchor between the built-in Context, Limit and MCP sections. Claiming the
+  // built-in Limit id puts the panel exactly between Context and MCP; the
+  // built-in Limit section is empty on Go-only setups and is replaced when it
+  // is not. `position: "bottom"` uses the footer instead.
+  id: "opencode.sidebar.limit",
   async setup(context) {
     const settings = loadConfig(context.options)
     let initialGo: UsageLimitsGo | undefined
@@ -185,6 +187,6 @@ export default Plugin.define({
     )
     return settings.position === "bottom"
       ? context.ui.slot({ prepend: "sidebar.footer", render })
-      : context.ui.slot({ prepend: "sidebar.content", render })
+      : context.ui.slot({ append: "sidebar.content", render })
   },
 })

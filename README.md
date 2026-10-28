@@ -64,9 +64,14 @@ The file is optional — every key falls back to the default below. It is watche
 so display changes apply immediately. `position` is read when the plugin loads,
 so changing it needs `/reload` (or a TUI restart).
 
-OpenCode's sidebar gives the `bottom` slot only a single row before the prompt
-area, so use `"compact": true` there; the full multi-line panel is designed for
-`"top"`.
+OpenCode publishes one `sidebar.content` boundary and no public anchor between
+its built-in Context, Limit and MCP sections. `"top"` claims the built-in Limit
+slot, which sits exactly between Context and MCP; that section is empty on Go-only
+setups, but if you use Console budgets it is replaced. Use `"bottom"` if you need
+the built-in Limit section.
+
+The bottom slot only gets one row before the prompt area, so use
+`"compact": true` there; the full multi-line panel is designed for `"top"`.
 
 ```json title="~/.config/opencode/usage-sidebar.json"
 {
@@ -87,7 +92,7 @@ area, so use `"compact": true` there; the full multi-line panel is designed for
 | Key | Default | Description |
 | :------------- | :-------- | :------------------------------------------------------------------------------------------------------------- |
 | `refreshMs` | `120000` | Polling interval in ms (2 minutes). Minimum `30000`; `0` disables polling and refreshes only on usage events. |
-| `position` | `"top"` | `"top"` or `"bottom"` of the sidebar. OpenCode 2.2.0 exposes one sidebar slot, so there is no middle position. |
+| `position` | `"top"` | `"top"` places the panel between Context and MCP; `"bottom"` places it at the bottom of the sidebar. |
 | `compact` | `false` | One-line summary: title plus the three percentages (or the estimate when there are no meters). Recommended with `position: "bottom"`. |
 | `title` | `"Usage"` | Section heading, up to 40 characters. |
 | `showEstimate` | `true` | Show the catalog-price estimate. |
