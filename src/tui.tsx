@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/solid */
 import type { UsageLimitsGo } from "@opencode/client"
 import { Plugin } from "@opencode/plugin/tui"
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js"
