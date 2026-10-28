@@ -130,9 +130,12 @@ If the panel shows the estimate but no meters:
 - Providers other than Go have no rolling/weekly/monthly meters; the estimate
   still works.
 
-Percentages are integers reported by the Go usage endpoint, which truncates
-toward zero; the Console page rounds the underlying spend. A one-point
-difference (for example `8%` here vs `9%` there) is normal.
+Percentages are floored integers reported by the Go usage endpoint. The Console
+page calculates from the raw dollar spend and rounds, so it can be one point
+higher (for example `8%` here vs `9%` there). The plugin applies `Math.round` to
+whatever the API returns, so it matches the web whenever the API exposes a
+fraction; it cannot recover a fraction the endpoint has already discarded.
+Exact parity would require OpenCode to expose raw spend or a fractional percent.
 
 > [!NOTE]
 > `usage.limits` is an experimental OpenCode endpoint. The plugin degrades to
