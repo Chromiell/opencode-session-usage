@@ -11,3 +11,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # @opentui/solid 0.7.0 pins solid-js 1.9.12 exactly. Bumping solid-js
+      # alone makes `npm ci` fail with ERESOLVE. Re-enable when OpenTUI widens
+      # the peer range.
+      - dependency-name: solid-js

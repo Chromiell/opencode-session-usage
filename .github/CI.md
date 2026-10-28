@@ -12,7 +12,7 @@ only the parts relevant to a TypeScript/OpenTUI plugin.
 | `test` | Vitest | Unit tests for pricing, reset formatting, bars and config parsing. |
 | `lint` | Biome | Formatting and lint rules. |
 | `package` | `npm pack --json` | Assert the tarball contains the TUI entrypoint, helpers and docs. |
-| `secrets` | gitleaks | Fail if a credential is committed. |
+| `secrets` | gitleaks CLI | Fail if a credential is committed in git history. |
 | `spelling` | typos | Spell-check docs and comments. |
 | `links` | lychee | Validate local Markdown links and anchors offline. |
 | `markdown` | markdownlint-cli2 | Markdown style (`.github/linters/.markdownlint-cli2.yaml`). |
@@ -52,6 +52,7 @@ Marketplace actions are pinned to full commit SHAs and kept current by
 Dependabot. Tools installed in run steps are pinned by version:
 
 - actionlint `1.7.12`
+- gitleaks `8.24.3`
 - yamllint `1.38.0`
 - markdownlint-cli2 `0.23.3`
 

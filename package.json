@@ -29,6 +29,9 @@
     "src/tui.tsx",
     "src/config.ts",
     "src/usage.ts",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
     "LEGAL.md"
   ],
   "scripts": {
