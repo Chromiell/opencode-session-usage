@@ -1,0 +1,13 @@
+# markdownlint-cli2 configuration.
+# Run locally with: markdownlint-cli2 --config .github/linters/.markdownlint-cli2.yaml "**/*.md"
+
+config:
+  # Long tables, command examples and URLs read better unwrapped.
+  MD013: false
+
+  # Compact table style: single spaces around pipes, no column alignment.
+  MD060:
+    style: compact
+
+  # GitHub alert blocks need a blank line between them to render distinctly.
+  MD028: false

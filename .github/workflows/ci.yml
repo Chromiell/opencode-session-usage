@@ -1,0 +1,223 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: "Force the typecheck job to fail (tests failure notifications)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1   # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Simulate failure (manual runs only)
+        if: ${{ inputs.simulate_failure }}
+        run: |
+          echo "::error::Simulated failure requested via workflow_dispatch (simulate_failure=true)"
+          exit 1
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+
+  test:
+    name: Tests (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1   # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+
+  lint:
+    name: Format and lint (Biome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1   # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+
+  package:
+    name: Package contents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1   # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Verify the published tarball exposes the TUI entrypoint
+        run: |
+          npm pack --json > "$RUNNER_TEMP/pack.json"
+          node - "$RUNNER_TEMP/pack.json" <<'NODE'
+          const fs = require("node:fs")
+          const parsed = JSON.parse(fs.readFileSync(process.argv[2], "utf8"))
+          // npm <= 11 emits an array; npm 12 emits an object keyed by package name.
+          const pack = Array.isArray(parsed) ? parsed[0] : Object.values(parsed)[0]
+          const files = new Set(pack.files.map((file) => file.path))
+          for (const required of ["src/tui.tsx", "src/config.ts", "src/usage.ts", "README.md", "LICENSE", "NOTICE", "LEGAL.md"]) {
+            if (!files.has(required)) {
+              console.error(`Missing from package: ${required}`)
+              process.exit(1)
+            }
+          }
+          console.log(`Packed ${pack.files.length} file(s) into ${pack.filename}`)
+          NODE
+
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e   # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  spelling:
+    name: Spelling (typos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      - uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b   # v1.51.1
+        with:
+          config: .github/linters/typos.toml
+
+  links:
+    name: Markdown links (lychee)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8   # v2
+        with:
+          args: --offline --no-progress --include-fragments './**/*.md'
+          fail: true
+
+  markdown:
+    name: Markdown (markdownlint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      - name: Lint Markdown
+        run: |
+          mapfile -t files < <(git ls-files '*.md')
+          echo "Checking ${#files[@]} file(s)"
+          npx --yes "markdownlint-cli2@0.23.3" --config .github/linters/.markdownlint-cli2.yaml "${files[@]}"
+
+  yaml:
+    name: YAML (yamllint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      - name: Lint YAML
+        run: |
+          python3 -m venv "$RUNNER_TEMP/yamllint-venv"
+          "$RUNNER_TEMP/yamllint-venv/bin/pip" install -q "yamllint==1.38.0"
+          mapfile -t files < <(git ls-files '*.yml' '*.yaml')
+          echo "Checking ${#files[@]} file(s)"
+          "$RUNNER_TEMP/yamllint-venv/bin/yamllint" --config-file .github/linters/yamllint.yml "${files[@]}"
+
+  actionlint:
+    name: Workflows (actionlint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      - name: Install actionlint
+        run: |
+          version=1.7.12
+          curl -fsSL -o actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz"
+          tar -xzf actionlint.tar.gz actionlint
+      - name: Lint workflow files
+        run: ./actionlint -color
+
+  notify:
+    name: Notify (run status)
+    runs-on: ubuntu-latest
+    needs: [typecheck, test, lint, package, secrets, spelling, links, markdown, yaml, actionlint]
+    if: ${{ !cancelled() }}
+    env:
+      WEBHOOK_URL: ${{ secrets.CI_WEBHOOK_URL }}
+    steps:
+      - name: Send webhook notification
+        if: ${{ env.WEBHOOK_URL != '' }}
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_MSG: ${{ github.event.head_commit.message || github.event.pull_request.title || '' }}
+        run: |
+          failures="$(jq -r '[to_entries[] | select(.value.result != "success")] | length' <<< "$NEEDS_JSON")"
+          if [[ "$failures" == "0" ]]; then
+            mood="✅"; verdict="passed"
+          else
+            mood="❌"; verdict="failed — ${failures} check(s)"
+          fi
+          details="$(jq -r '
+            def icon:
+              if   . == "success"   then "✅"
+              elif . == "failure"   then "❌"
+              elif . == "cancelled" then "🚫"
+              elif . == "skipped"   then "➖"
+              else "❔" end;
+            to_entries
+            | map("\(.value.result | icon) \(.key): \(.value.result)")
+            | join("\n")
+          ' <<< "$NEEDS_JSON")"
+          title="${mood} CI ${verdict} on ${REPO} (${REF}) — triggered by ${ACTOR}"
+          commit_subject="${COMMIT_MSG%%$'\n'*}"
+          commit_subject="${commit_subject#"${commit_subject%%[![:space:]]*}"}"
+          commit_subject="${commit_subject%"${commit_subject##*[![:space:]]}"}"
+          commit_subject="${commit_subject:0:200}"
+          if [[ "$WEBHOOK_URL" == *"hooks.slack.com"* ]]; then
+            title="*${title}*"
+            [[ -n "$commit_subject" ]] && commit_subject="_${commit_subject}_"
+          else
+            commit_subject="${commit_subject//\\/\\\\}"
+            commit_subject="${commit_subject//\*/\\*}"
+            commit_subject="${commit_subject//_/\\_}"
+            commit_subject="${commit_subject//\`/\\\`}"
+            title="**${title}**"
+            [[ -n "$commit_subject" ]] && commit_subject="*${commit_subject}*"
+          fi
+          if [[ -n "$commit_subject" ]]; then
+            message="${title}"$'\n\n'"${commit_subject}"$'\n\n'"${details}"$'\n\n'"${RUN_URL}"
+          else
+            message="${title}"$'\n\n'"${details}"$'\n\n'"${RUN_URL}"
+          fi
+          if [[ "$WEBHOOK_URL" == *"hooks.slack.com"* ]]; then
+            body="$(jq -n --arg text "$message" '{text: $text}')"
+          else
+            body="$(jq -n --arg content "$message" '{content: $content}')"
+          fi
+          curl -fsS --retry 3 -H 'Content-Type: application/json' -d "$body" "$WEBHOOK_URL"

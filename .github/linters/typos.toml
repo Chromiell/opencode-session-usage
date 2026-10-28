@@ -1,0 +1,14 @@
+# Configuration for the `typos` spell checker.
+# Run locally with: typos --config .github/linters/typos.toml
+
+[default.extend-words]
+# Product and project names that are not misspellings.
+OpenTUI = "OpenTUI"
+opentui = "opentui"
+OpenCode = "OpenCode"
+opencode = "opencode"
+Chromiell = "Chromiell"
+Anomaly = "Anomaly"
+XDG = "XDG"
+Kimi = "Kimi"
+lychee = "lychee"

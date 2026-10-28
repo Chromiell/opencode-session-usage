@@ -1,0 +1,46 @@
+opencode-session-usage
+Copyright (c) 2026 Chromiell
+
+This project is an independent, community-built plugin for OpenCode. It is not
+affiliated with, endorsed by, or sponsored by Anomaly Innovations, Inc. or the
+OpenCode project. "OpenCode" is used descriptively to identify the host
+application.
+
+OpenCode is open source software distributed under the MIT License:
+
+    MIT License
+
+    Copyright (c) 2025 opencode
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+The catalog-price estimate follows the pricing semantics of OpenCode's public
+`calculateCost` implementation (packages/core/src/session/usage.ts) and the
+public `@opencode/client` types. No OpenCode source code is vendored in this
+package; OpenCode is a runtime dependency/peer of the host application.
+
+Runtime dependencies and peer dependencies are distributed under their own
+licenses:
+
+- @opencode/plugin, @opencode/client — MIT (OpenCode)
+- @opentui/core, @opentui/solid — MIT (opentui contributors)
+- solid-js — MIT (Ryan Carniato and contributors)
+
+This package stores no credentials and sends no telemetry. It calls only the
+documented OpenCode usage-limits API already used by the host TUI.

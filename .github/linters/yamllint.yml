@@ -1,0 +1,19 @@
+---
+# yamllint configuration for this repository.
+# Run locally with: yamllint --config-file .github/linters/yamllint.yml .
+
+extends: default
+
+rules:
+  # GitHub Actions workflows use the bare `on:` key.
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false
+
+  # Workflow `run:` blocks and URLs intentionally contain long lines.
+  line-length: disable
+
+  comments-indentation: disable
+
+  # Workflows start with `name:` rather than a document marker.
+  document-start: disable

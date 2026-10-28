@@ -1,0 +1,63 @@
+{
+  "name": "opencode-session-usage",
+  "version": "0.1.0",
+  "description": "OpenCode TUI sidebar with a catalog-price session estimate and OpenCode Go / Console usage meters.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Chromiell",
+  "homepage": "https://github.com/Chromiell/opencode-session-usage",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chromiell/opencode-session-usage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Chromiell/opencode-session-usage/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "opencode-tui",
+    "usage",
+    "cost",
+    "go",
+    "console"
+  ],
+  "exports": {
+    "./tui": "./src/tui.tsx"
+  },
+  "files": [
+    "src/tui.tsx",
+    "src/config.ts",
+    "src/usage.ts",
+    "LEGAL.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "pack:check": "npm pack --dry-run",
+    "ci": "npm run typecheck && npm test && npm run lint && npm run pack:check",
+    "prepublishOnly": "npm run ci"
+  },
+  "dependencies": {
+    "@opencode/plugin": "^2.2.0"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.7.0",
+    "@opentui/solid": ">=0.7.0",
+    "solid-js": ">=1.9.12 <1.10.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.3",
+    "@opencode/client": "^2.2.0",
+    "@opentui/core": "^0.7.0",
+    "@opentui/solid": "^0.7.0",
+    "@types/node": "^26.6.5",
+    "markdownlint-cli2": "^0.23.3",
+    "solid-js": "1.9.12",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
