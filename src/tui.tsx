@@ -59,7 +59,11 @@ export function SidebarUsage(props: SidebarUsageProps) {
     if (costInFlight) return
     costInFlight = true
     try {
-      const models = props.context.data.location.model.list(location()) ?? []
+      let models = props.context.data.location.model.list(location()) ?? []
+      if (models.length === 0) {
+        await props.context.data.location.model.sync(location())
+        models = props.context.data.location.model.list(location()) ?? []
+      }
       setTotal(await fetchSessionCost(props.context, props.sessionID, models))
     } catch {
       // Keep the last known total; usage events retry.
@@ -233,7 +237,11 @@ export default Plugin.define({
     const route = context.ui.router.current()
     if (route.type === "session") {
       try {
-        const models = context.data.location.model.list(location) ?? []
+        let models = context.data.location.model.list(location) ?? []
+        if (models.length === 0) {
+          await context.data.location.model.sync(location)
+          models = context.data.location.model.list(location) ?? []
+        }
         initialCost = await fetchSessionCost(context, route.sessionID, models)
       } catch {
         // The component retries after mount.
