@@ -191,8 +191,11 @@ export function SidebarUsage(props: SidebarUsageProps) {
         </box>
         <Show when={config().showBars}>
           <box height={1}>
+            <text position="absolute" left={0} fg={theme.text.muted}>
+              {dyn(() => "─".repeat(config().barWidth))}
+            </text>
             <text position="absolute" left={0} fg={meterColor(meter())}>
-              {dyn(() => "━".repeat(size().filled) + "─".repeat(size().empty))}
+              {dyn(() => "━".repeat(size().filled))}
             </text>
           </box>
         </Show>
