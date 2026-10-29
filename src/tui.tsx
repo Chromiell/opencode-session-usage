@@ -174,17 +174,27 @@ export function SidebarUsage(props: SidebarUsageProps) {
 
   const meterRow = (label: string, meter: () => UsageLimitsMeter) => {
     const size = () => bar(meter().percent, config().barWidth)
-    const line = () => {
-      const percent = `${Math.round(meter().percent)}%`.padStart(4)
-      const reset = config().showReset ? ` · resets ${resetIn(meter().resetsAt, now())}` : ""
-      return `${label.padEnd(8)}${percent} used${reset}`
-    }
-    const bars = () => "━".repeat(size().filled) + "─".repeat(size().empty)
+    const percentText = () => `${`${Math.round(meter().percent)}%`.padStart(4)} used`
+    const resetText = () => (config().showReset ? ` · resets ${resetIn(meter().resetsAt, now())}` : "")
     return (
       <box>
-        <text fg={meterColor(meter())}>{dyn(line)}</text>
+        <box height={1}>
+          <text position="absolute" left={0} fg={theme.text.base}>
+            {dyn(() => label.padEnd(8))}
+          </text>
+          <text position="absolute" left={8} fg={meterColor(meter())}>
+            {dyn(percentText)}
+          </text>
+          <text position="absolute" left={17} fg={theme.text.muted}>
+            {dyn(resetText)}
+          </text>
+        </box>
         <Show when={config().showBars}>
-          <text fg={theme.text.muted}>{dyn(bars)}</text>
+          <box height={1}>
+            <text position="absolute" left={0} fg={meterColor(meter())}>
+              {dyn(() => "━".repeat(size().filled) + "─".repeat(size().empty))}
+            </text>
+          </box>
         </Show>
       </box>
     )

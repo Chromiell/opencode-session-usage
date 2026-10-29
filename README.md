@@ -233,18 +233,6 @@ src/usage.ts     pure cost, reset and bar helpers
 src/*.test.ts    Vitest coverage for the pure helpers and config
 ```
 
-### CI and Discord notifications
-
-`.github/workflows/ci.yml` runs typecheck, tests, Biome, package validation,
-actionlint, secret scanning, spelling, Markdown link checks, Markdown style and
-YAML lint. A final `notify` job reports every completed run to a Discord or
-Slack incoming webhook, using the same payload format as the dotfiles CI.
-
-To enable it, add the webhook URL as the repository secret
-**`CI_WEBHOOK_URL`** (_Settings → Secrets and variables → Actions_). Without
-the secret the notification step is skipped; CI still runs. Use **Actions → CI
-→ Run workflow** with `simulate_failure` checked to test a failure message.
-
 ## Compatibility
 
 Built against `@opencode/plugin` and `@opencode/client` **2.2.0**. OpenCode
