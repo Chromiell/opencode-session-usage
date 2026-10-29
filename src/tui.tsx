@@ -1,10 +1,14 @@
 /** @jsxImportSource @opentui/solid */
-import type { ModelInfo, SessionMessageInfo, UsageLimitsGo } from "@opencode/client"
+import type { ModelInfo, SessionMessageInfo, UsageLimitsGo, UsageLimitsMeter } from "@opencode/client"
 import { Plugin } from "@opencode/plugin/tui"
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js"
+import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js"
 import { loadConfig, watchConfig } from "./config"
 import { sessionCost } from "./estimate"
 import { bar, resetIn, TICK_MS } from "./usage"
+
+// OpenTUI/Solid treats a plain expression as a static string. A function child
+// is re-evaluated on every signal change; the cast keeps the JSX types happy.
+const dyn = (fn: () => string) => fn as unknown as string
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -65,6 +69,7 @@ export function SidebarUsage(props: SidebarUsageProps) {
         models = props.context.data.location.model.list(location()) ?? []
       }
       setTotal(await fetchSessionCost(props.context, props.sessionID, models))
+      repaint()
     } catch {
       // Keep the last known total; usage events retry.
     } finally {
@@ -74,6 +79,7 @@ export function SidebarUsage(props: SidebarUsageProps) {
 
   const [go, setGo] = createSignal<UsageLimitsGo | undefined>(props.initialGo)
   const [now, setNow] = createSignal(Date.now())
+  const repaint = () => props.context.renderer.requestRender()
   let lastLoaded = 0
   let lastForced = 0
   let inFlight = false
@@ -92,6 +98,7 @@ export function SidebarUsage(props: SidebarUsageProps) {
     try {
       const response = await props.context.client.usage.limits({ location: { directory: location().directory } })
       setGo(response.data?.go)
+      repaint()
     } catch {
       setGo(undefined)
     } finally {
@@ -117,6 +124,7 @@ export function SidebarUsage(props: SidebarUsageProps) {
   // by refreshMs, so the default cadence is one free GET every two minutes.
   const tick = setInterval(() => {
     setNow(Date.now())
+    repaint()
     if (config().refreshMs > 0) void load()
   }, TICK_MS)
   onCleanup(() => clearInterval(tick))
@@ -138,25 +146,19 @@ export function SidebarUsage(props: SidebarUsageProps) {
     }),
   )
 
-  const rows = createMemo(() => {
-    const value = go()
-    if (!value) return []
-    return [
-      { label: "Rolling", meter: value.rolling },
-      { label: "Weekly", meter: value.weekly },
-      { label: "Monthly", meter: value.monthly },
-    ]
-  })
-
   const estimateText = createMemo(() => {
     const value = total()
     return value === undefined ? "…" : money.format(value)
   })
 
   const compactLine = createMemo(() => {
-    const value = rows()
-    if (config().showMeters && value.length > 0) {
-      return value.map((row) => `${row.label.slice(0, 1)}${Math.round(row.meter.percent)}%`).join(" · ")
+    const value = go()
+    if (config().showMeters && value) {
+      return [
+        `R${Math.round(value.rolling.percent)}%`,
+        `W${Math.round(value.weekly.percent)}%`,
+        `M${Math.round(value.monthly.percent)}%`,
+      ].join(" · ")
     }
     return config().showEstimate ? `≈ ${estimateText()}` : ""
   })
@@ -167,50 +169,45 @@ export function SidebarUsage(props: SidebarUsageProps) {
     return meter.percent >= settings.warnAt ? theme.text.feedback.warning.base : theme.text.feedback.success.base
   }
 
+  const meterOf = (key: "rolling" | "weekly" | "monthly"): UsageLimitsMeter =>
+    go()?.[key] ?? { percent: 0, limited: false, resetsAt: 0 }
+
+  const meterRow = (label: string, meter: () => UsageLimitsMeter) => {
+    const size = () => bar(meter().percent, config().barWidth)
+    const line = () => {
+      const percent = `${Math.round(meter().percent)}%`.padStart(4)
+      const reset = config().showReset ? ` · resets ${resetIn(meter().resetsAt, now())}` : ""
+      return `${label.padEnd(8)}${percent} used${reset}`
+    }
+    const bars = () => "━".repeat(size().filled) + "─".repeat(size().empty)
+    return (
+      <box>
+        <text fg={meterColor(meter())}>{dyn(line)}</text>
+        <Show when={config().showBars}>
+          <text fg={theme.text.muted}>{dyn(bars)}</text>
+        </Show>
+      </box>
+    )
+  }
+
   return (
     <box>
       <Show when={!config().compact}>
-        <text fg={theme.text.base}>
-          <b>{config().title}</b>
-        </text>
+        <text fg={theme.text.base}>{dyn(() => config().title)}</text>
         <Show when={config().showEstimate}>
-          <text fg={theme.text.muted}>≈ {estimateText()} session total</text>
+          <text fg={theme.text.muted}>{dyn(() => `≈ ${estimateText()} session total`)}</text>
         </Show>
-        <Show when={config().showMeters && rows().length > 0}>
+        <Show when={config().showMeters && go()}>
           <box paddingTop={config().showEstimate ? 1 : 0} gap={1}>
-            <For each={rows()}>
-              {(row) => {
-                const size = () => bar(row.meter.percent, config().barWidth)
-                return (
-                  <box>
-                    <text fg={theme.text.base}>
-                      <b>{row.label.padEnd(8)}</b>
-                      <span style={{ fg: meterColor(row.meter) }}>
-                        {`${Math.round(row.meter.percent)}%`.padStart(4)} used
-                      </span>
-                      <Show when={config().showReset}>
-                        <span style={{ fg: theme.text.muted }}> · resets {resetIn(row.meter.resetsAt, now())}</span>
-                      </Show>
-                    </text>
-                    <Show when={config().showBars}>
-                      <text>
-                        <span style={{ fg: meterColor(row.meter) }}>{"━".repeat(size().filled)}</span>
-                        <span style={{ fg: theme.text.muted }}>{"─".repeat(size().empty)}</span>
-                      </text>
-                    </Show>
-                  </box>
-                )
-              }}
-            </For>
+            {meterRow("Rolling", () => meterOf("rolling"))}
+            {meterRow("Weekly", () => meterOf("weekly"))}
+            {meterRow("Monthly", () => meterOf("monthly"))}
           </box>
         </Show>
       </Show>
 
       <Show when={config().compact}>
-        <text fg={theme.text.base}>
-          <b>{config().title}</b>
-          <span style={{ fg: theme.text.muted }}> · {compactLine()}</span>
-        </text>
+        <text fg={theme.text.base}>{dyn(() => `${config().title} · ${compactLine()}`)}</text>
       </Show>
     </box>
   )
