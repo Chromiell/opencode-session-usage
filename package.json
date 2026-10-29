@@ -29,6 +29,7 @@
     "src/tui.tsx",
     "src/config.ts",
     "src/usage.ts",
+    "src/estimate.ts",
     "README.md",
     "LICENSE",
     "NOTICE",

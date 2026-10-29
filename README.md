@@ -156,8 +156,14 @@ Exact parity would require OpenCode to expose raw spend or a fractional percent.
 
 ### Session estimate
 
-For every assistant message, the plugin looks up the model in OpenCode's cached
-catalog and prices its tokens:
+The total covers **every** message in the session, paginating the message API
+instead of using only the page the TUI has loaded. That keeps the figure correct
+after closing and resuming a long conversation.
+
+If any assistant message carries a positive provider-reported `cost`, the panel
+sums those values. This is exactly what the built-in usage statistics show, so
+the two agree. Providers on a subscription such as OpenCode Go report `0`; when
+every message is zero, the panel falls back to catalog pricing for all messages:
 
 ```text
 (input × input price
@@ -168,8 +174,7 @@ catalog and prices its tokens:
 
 It selects the most specific context-tiered price whose threshold the input +
 cached tokens exceed, otherwise the base price. This mirrors OpenCode's public
-`calculateCost` semantics. The result is formatted as USD and is an estimate,
-not a billed amount.
+`calculateCost` semantics. Catalog figures are estimates, not billed amounts.
 
 ### Usage meters
 
@@ -223,6 +228,7 @@ Source layout:
 ```text
 src/tui.tsx      plugin entry, slot registration, Solid/OpenTUI panel
 src/config.ts    config file discovery, validation, hot reload
+src/estimate.ts  whole-session cost (reported cost, catalog fallback)
 src/usage.ts     pure cost, reset and bar helpers
 src/*.test.ts    Vitest coverage for the pure helpers and config
 ```

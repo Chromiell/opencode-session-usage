@@ -79,7 +79,7 @@ jobs:
           // npm <= 11 emits an array; npm 12 emits an object keyed by package name.
           const pack = Array.isArray(parsed) ? parsed[0] : Object.values(parsed)[0]
           const files = new Set(pack.files.map((file) => file.path))
-          for (const required of ["src/tui.tsx", "src/config.ts", "src/usage.ts", "README.md", "LICENSE", "NOTICE", "LEGAL.md"]) {
+          for (const required of ["src/tui.tsx", "src/config.ts", "src/usage.ts", "src/estimate.ts", "README.md", "LICENSE", "NOTICE", "LEGAL.md"]) {
             if (!files.has(required)) {
               console.error(`Missing from package: ${required}`)
               process.exit(1)

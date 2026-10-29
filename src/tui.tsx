@@ -1,9 +1,10 @@
 /** @jsxImportSource @opentui/solid */
-import type { UsageLimitsGo } from "@opencode/client"
+import type { ModelInfo, SessionMessageInfo, UsageLimitsGo } from "@opencode/client"
 import { Plugin } from "@opencode/plugin/tui"
-import { createMemo, createSignal, For, onCleanup, Show } from "solid-js"
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js"
 import { loadConfig, watchConfig } from "./config"
-import { bar, catalogCost, resetIn, TICK_MS } from "./usage"
+import { sessionCost } from "./estimate"
+import { bar, resetIn, TICK_MS } from "./usage"
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -17,8 +18,26 @@ type SidebarUsageProps = {
   sessionID: string
   /** Usage limits fetched before the slot mounts, so the first frame has meters. */
   initialGo?: UsageLimitsGo
+  /** Whole-session cost fetched before the slot mounts. */
+  initialCost?: number
   /** Plugin options from `cli.json`, which override the config file. */
   options?: unknown
+}
+
+async function fetchSessionCost(
+  context: Plugin.Context,
+  sessionID: string,
+  models: readonly ModelInfo[],
+): Promise<number> {
+  const messages: SessionMessageInfo[] = []
+  let cursor: string | undefined
+  for (let page = 0; page < 100; page++) {
+    const response = await context.client.message.list({ sessionID, limit: 100, cursor })
+    messages.push(...response.data)
+    cursor = response.cursor.next ?? undefined
+    if (!cursor) break
+  }
+  return sessionCost(messages, models)
 }
 
 export function SidebarUsage(props: SidebarUsageProps) {
@@ -33,16 +52,21 @@ export function SidebarUsage(props: SidebarUsageProps) {
       props.context.data.location.default(),
   )
 
-  const estimate = createMemo(() => {
-    const models = props.context.data.location.model.list(location()) ?? []
-    let total = 0
-    for (const message of props.context.data.session.message.list(props.sessionID)) {
-      if (message.type !== "assistant") continue
-      const model = models.find((item) => item.providerID === message.model.providerID && item.id === message.model.id)
-      if (model) total += catalogCost(model.cost, message.tokens)
+  const [total, setTotal] = createSignal<number | undefined>(props.initialCost)
+  let costInFlight = false
+
+  const refreshCost = async () => {
+    if (costInFlight) return
+    costInFlight = true
+    try {
+      const models = props.context.data.location.model.list(location()) ?? []
+      setTotal(await fetchSessionCost(props.context, props.sessionID, models))
+    } catch {
+      // Keep the last known total; usage events retry.
+    } finally {
+      costInFlight = false
     }
-    return total
-  })
+  }
 
   const [go, setGo] = createSignal<UsageLimitsGo | undefined>(props.initialGo)
   const [now, setNow] = createSignal(Date.now())
@@ -72,6 +96,18 @@ export function SidebarUsage(props: SidebarUsageProps) {
   }
 
   void load(true)
+  if (props.initialCost === undefined) void refreshCost()
+
+  createEffect(
+    on(
+      () => props.sessionID,
+      () => {
+        void refreshCost()
+        void load(true)
+      },
+      { defer: true },
+    ),
+  )
 
   // The tick advances the countdown every 15 s; the network read is throttled
   // by refreshMs, so the default cadence is one free GET every two minutes.
@@ -83,12 +119,18 @@ export function SidebarUsage(props: SidebarUsageProps) {
 
   onCleanup(
     props.context.data.on("session.execution.succeeded", (event) => {
-      if (event.data.sessionID === props.sessionID) void load(true)
+      if (event.data.sessionID === props.sessionID) {
+        void refreshCost()
+        void load(true)
+      }
     }),
   )
   onCleanup(
     props.context.data.on("session.usage.updated", (event) => {
-      if (event.data.sessionID === props.sessionID) void load(true)
+      if (event.data.sessionID === props.sessionID) {
+        void refreshCost()
+        void load(true)
+      }
     }),
   )
 
@@ -102,12 +144,17 @@ export function SidebarUsage(props: SidebarUsageProps) {
     ]
   })
 
+  const estimateText = createMemo(() => {
+    const value = total()
+    return value === undefined ? "…" : money.format(value)
+  })
+
   const compactLine = createMemo(() => {
     const value = rows()
     if (config().showMeters && value.length > 0) {
       return value.map((row) => `${row.label.slice(0, 1)}${Math.round(row.meter.percent)}%`).join(" · ")
     }
-    return config().showEstimate ? `≈ ${money.format(estimate())}` : ""
+    return config().showEstimate ? `≈ ${estimateText()}` : ""
   })
 
   const meterColor = (meter: { percent: number; limited: boolean }) => {
@@ -123,7 +170,7 @@ export function SidebarUsage(props: SidebarUsageProps) {
           <b>{config().title}</b>
         </text>
         <Show when={config().showEstimate}>
-          <text fg={theme.text.muted}>≈ {money.format(estimate())} session estimate</text>
+          <text fg={theme.text.muted}>≈ {estimateText()} session total</text>
         </Show>
         <Show when={config().showMeters && rows().length > 0}>
           <box paddingTop={config().showEstimate ? 1 : 0} gap={1}>
@@ -174,16 +221,32 @@ export default Plugin.define({
   id: "opencode.sidebar.limit",
   async setup(context) {
     const settings = loadConfig(context.options)
+    const location = context.location ?? context.data.location.default()
     let initialGo: UsageLimitsGo | undefined
+    let initialCost: number | undefined
     try {
-      const location = context.location ?? context.data.location.default()
       const response = await context.client.usage.limits({ location: { directory: location.directory } })
       initialGo = response.data?.go
     } catch {
       // The panel retries on its own; a failed prefetch must not block loading.
     }
+    const route = context.ui.router.current()
+    if (route.type === "session") {
+      try {
+        const models = context.data.location.model.list(location) ?? []
+        initialCost = await fetchSessionCost(context, route.sessionID, models)
+      } catch {
+        // The component retries after mount.
+      }
+    }
     const render = (input: { sessionID: string }) => (
-      <SidebarUsage context={context} sessionID={input.sessionID} initialGo={initialGo} options={context.options} />
+      <SidebarUsage
+        context={context}
+        sessionID={input.sessionID}
+        initialGo={initialGo}
+        initialCost={initialCost}
+        options={context.options}
+      />
     )
     return settings.position === "bottom"
       ? context.ui.slot({ prepend: "sidebar.footer", render })
