@@ -37,6 +37,19 @@ export function catalogCost(costs: readonly ModelCost[], tokens: TokenUsageInfo 
   )
 }
 
+/** How a usage meter should be coloured. */
+export type UsageSeverity = "success" | "warning" | "error"
+
+/**
+ * Severity for a usage meter.
+ *
+ * `limited` always wins, then the critical and warning thresholds (inclusive).
+ */
+export function usageSeverity(percent: number, limited: boolean, warnAt: number, criticalAt: number): UsageSeverity {
+  if (limited || percent >= criticalAt) return "error"
+  return percent >= warnAt ? "warning" : "success"
+}
+
 /** Human-readable time until a reset, e.g. `4d 9h` or `2h 5m`. */
 export function resetIn(at: number, now: number): string {
   const remaining = Math.max(0, at - now)

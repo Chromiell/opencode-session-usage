@@ -1,6 +1,6 @@
 import type { ModelCost, TokenUsageInfo } from "@opencode/client"
 import { describe, expect, it } from "vitest"
-import { bar, catalogCost, resetIn } from "./usage"
+import { bar, catalogCost, resetIn, usageSeverity } from "./usage"
 
 const base: ModelCost = { input: 1, output: 2, cache: { read: 0.1, write: 0.2 } }
 const tiered: ModelCost[] = [
@@ -36,6 +36,26 @@ describe("catalogCost", () => {
 
   it("returns zero when no price matches", () => {
     expect(catalogCost([], tokens({ input: 10 }))).toBe(0)
+  })
+})
+
+describe("usageSeverity", () => {
+  it("is successful below the warning threshold", () => {
+    expect(usageSeverity(69.9, false, 70, 90)).toBe("success")
+  })
+
+  it("warns at and above the warning threshold", () => {
+    expect(usageSeverity(70, false, 70, 90)).toBe("warning")
+    expect(usageSeverity(89.9, false, 70, 90)).toBe("warning")
+  })
+
+  it("errors at and above the critical threshold", () => {
+    expect(usageSeverity(90, false, 70, 90)).toBe("error")
+    expect(usageSeverity(100, false, 70, 90)).toBe("error")
+  })
+
+  it("errors whenever the meter is limited", () => {
+    expect(usageSeverity(0, true, 70, 90)).toBe("error")
   })
 })
 

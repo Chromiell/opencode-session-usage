@@ -28,3 +28,20 @@ export function sessionCost(messages: readonly SessionMessageInfo[], models: rea
 
   return hasReported ? reported : catalog
 }
+
+/**
+ * What a session and every delegated child session cost.
+ *
+ * Each session is priced on its own: a parent whose provider reports real
+ * costs does not discard a subagent that reports zero and needs catalog
+ * pricing. This matters for subscription providers such as OpenCode Go, where
+ * delegated work can otherwise look free.
+ */
+export function sessionsCost(
+  sessions: readonly (readonly SessionMessageInfo[])[],
+  models: readonly ModelInfo[],
+): number {
+  let total = 0
+  for (const messages of sessions) total += sessionCost(messages, models)
+  return total
+}
