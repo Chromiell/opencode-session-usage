@@ -1,6 +1,7 @@
 /** @jsxImportSource @opentui/solid */
 import type { ModelInfo, SessionMessageInfo, UsageLimitsGo, UsageLimitsMeter } from "@opencode/client"
 import { Plugin } from "@opencode/plugin/tui"
+import type { TextRenderable } from "@opentui/core"
 import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js"
 import { loadConfig, watchConfig } from "./config"
 import { sessionsCost } from "./estimate"
@@ -290,36 +291,48 @@ export function SidebarUsage(props: SidebarUsageProps) {
     const size = () => bar(meter().percent, config().barWidth)
     const percentText = () => `${`${Math.round(meter().percent)}%`.padStart(4)} used`
     const resetText = () => (config().showReset ? ` · resets ${resetIn(meter().resetsAt, now())}` : "")
-    // Recreate the row when severity changes. Updating `fg` alone can leave
-    // already-rendered text chunks in their previous colour.
+    const severity = createMemo(() => severityOf(meter()))
+    const color = () => meterColor(severity())
+    // Published installs live under `node_modules`, where the host skips the
+    // Solid JSX transform, so props like `fg` (and `<Show when>`) are fixed at
+    // mount and do not follow signals. Drive the colour from a reactive effect
+    // and assign it to the rendered text instead.
+    let percentNode: TextRenderable | undefined
+    let barNode: TextRenderable | undefined
+    const paint = () => {
+      const fg = color()
+      if (percentNode) percentNode.fg = fg
+      if (barNode) barNode.fg = fg
+    }
+    createEffect(paint)
+    const track = (assign: (node: TextRenderable | undefined) => void) => (node: TextRenderable) => {
+      assign(node)
+      paint()
+    }
     return (
-      <Show when={severityOf(meter())} keyed>
-        {(severity) => (
-          <box>
-            <box height={1}>
-              <text position="absolute" left={0} fg={theme.text.base}>
-                {dyn(() => label.padEnd(8))}
-              </text>
-              <text position="absolute" left={8} fg={meterColor(severity)}>
-                {dyn(percentText)}
-              </text>
-              <text position="absolute" left={17} fg={theme.text.muted}>
-                {dyn(resetText)}
-              </text>
-            </box>
-            <Show when={config().showBars}>
-              <box height={1}>
-                <text position="absolute" left={0} fg={theme.text.muted}>
-                  {dyn(() => "─".repeat(config().barWidth))}
-                </text>
-                <text position="absolute" left={0} fg={meterColor(severity)}>
-                  {dyn(() => "━".repeat(size().filled))}
-                </text>
-              </box>
-            </Show>
+      <box>
+        <box height={1}>
+          <text position="absolute" left={0} fg={theme.text.base}>
+            {dyn(() => label.padEnd(8))}
+          </text>
+          <text position="absolute" left={8} fg={color()} ref={track((node) => (percentNode = node))}>
+            {dyn(percentText)}
+          </text>
+          <text position="absolute" left={17} fg={theme.text.muted}>
+            {dyn(resetText)}
+          </text>
+        </box>
+        <Show when={config().showBars}>
+          <box height={1}>
+            <text position="absolute" left={0} fg={theme.text.muted}>
+              {dyn(() => "─".repeat(config().barWidth))}
+            </text>
+            <text position="absolute" left={0} fg={color()} ref={track((node) => (barNode = node))}>
+              {dyn(() => "━".repeat(size().filled))}
+            </text>
           </box>
-        )}
-      </Show>
+        </Show>
+      </box>
     )
   }
 
