@@ -56,7 +56,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.6.3",
     "@opencode/client": "^2.2.0",
-    "@opentui/core": "^0.8.1",
+    "@opentui/core": "^0.9.0",
     "@opentui/solid": "^0.8.1",
     "@types/node": "^26.6.5",
     "markdownlint-cli2": "^0.24.0",
