@@ -8,7 +8,7 @@ only the parts relevant to a TypeScript/OpenTUI plugin.
 
 | Job | Tool | Purpose |
 | :----------- | :---------------- | :----------------------------------------------------------------- |
-| `typecheck` | `tsc --noEmit` | Type-check the plugin, config and tests. |
+| `typecheck` | `tsc --noEmit` | Type-check the plugin, config and tests. Skipped when a push or PR only changes `package-lock.json`. |
 | `test` | Vitest | Unit tests for pricing, reset formatting, bars and config parsing. |
 | `lint` | Biome | Formatting and lint rules. |
 | `package` | `npm pack --json` | Assert the tarball contains the TUI entrypoint, helpers and docs. |

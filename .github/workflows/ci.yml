@@ -24,17 +24,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with:
+          # Needed to diff the pushed/PR commit against its base below.
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1   # v7.1.0
         with:
           node-version: 24
           cache: npm
+      - name: Check for non-lockfile changes
+        id: changes
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # package-lock.json only affects the resolved dependency tree, so a
+          # lockfile-only update should not fail the TypeScript check. The
+          # test, lint and package jobs still install from the lockfile.
+          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
+          if [ -z "$files" ] || grep -qvE '^package-lock\.json$' <<< "$files"; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Simulate failure (manual runs only)
         if: ${{ inputs.simulate_failure }}
         run: |
           echo "::error::Simulated failure requested via workflow_dispatch (simulate_failure=true)"
           exit 1
-      - run: npm ci --no-audit --no-fund
-      - run: npm run typecheck
+      - if: steps.changes.outputs.needed != 'false'
+        run: npm ci --no-audit --no-fund
+      - if: steps.changes.outputs.needed != 'false'
+        run: npm run typecheck
 
   test:
     name: Tests (Vitest)
